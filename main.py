@@ -2,11 +2,12 @@ import argparse
 
 import torch
 import torch.nn as nn
-from torch import optim
 import torch.nn.functional as F
+import torchvision
+from torch import optim
 from torch.utils.data.dataloader import DataLoader
 from torchvision import datasets, transforms
-import torchvision
+from torchvision.models.densenet import densenet201
 from torchvision.models.resnet import resnet34
 
 import model
@@ -100,9 +101,8 @@ def  main():
     train_loader = DataLoader(dataset1, **train_kwargs)
     test_loader = DataLoader(dataset2, **test_kwargs)
 
-    net = model.resnet18(num_classes = 10).to(device)
-    # net = torchvision.models.resnet34(num_classes = 10).to(device)
-    # net =Net().to(device)
+    net = model.densenet201(num_classes = 10).to(device)
+    # net = torchvision.models.densenet201(num_classes = 10).to(device)
     optimizer = optim.Adadelta(net.parameters(), lr = args.lr)
 
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = args.gamma)
