@@ -11,7 +11,6 @@ from typing import Any, List, Tuple
 from .utils import load_state_dict_from_url
 
 
-
 __all__ = ['DenseNet', 'densenet121', 'densenet169', 'densenet201']
 
 # Rretrained model
@@ -52,10 +51,11 @@ class _BottleNeckLayer(nn.Module):
         self.relu2: nn.ReLU
         self.add_module('relu2', nn.ReLU(inplace = True))
         self.conv2: nn.Conv2d
-        self.add_module('conv2', nn.Conv2d(growth_rate * bn_size,
+        self.add_module('conv2', nn.Conv2d(bn_size * growth_rate,
                                            growth_rate,
-                                           kernel_size = 1,
+                                           kernel_size = 3,
                                            stride = 1,
+                                           padding = 1,
                                            bias = False))
 
         self.drop_rate = float(drop_rate)

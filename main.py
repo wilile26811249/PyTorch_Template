@@ -4,13 +4,9 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 from torch import optim
 from torch.utils.data.dataloader import DataLoader
 from torchvision import datasets, transforms
-from torchvision.models.densenet import densenet201
-from torchvision.models.resnet import resnet34
-
 import model
 
 
@@ -73,7 +69,6 @@ def  main():
                         help='For Saving the current Model')
     args = parser.parse_args()
 
-    args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     torch.manual_seed(args.seed)
@@ -103,7 +98,6 @@ def  main():
     test_loader = DataLoader(dataset2, **test_kwargs)
 
     net = model.densenet201(num_classes = 10).to(device)
-    # net = torchvision.models.densenet201(num_classes = 10).to(device)
     optimizer = optim.Adadelta(net.parameters(), lr = args.lr)
 
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = args.gamma)
