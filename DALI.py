@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.utils.data
 import torch.utils.data.distributed
-from caffe2.python.visualize import NCHW, NHWC
 from numpy.compat.py3k import long
 from numpy.ma.core import squeeze
 from nvidia.dali.pipeline import Pipeline
@@ -25,11 +24,12 @@ from torch.utils.data.dataloader import DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.transforms.transforms import RandomResizedCrop
+import torchvision.models as models
 from tqdm import tqdm
 
 import model
 
-DOG_CAT_PATH = "/data/dogcat/"
+DOG_CAT_PATH = "data/dogcat"
 CROP_SIZE = 224
 
 # Training settings
@@ -54,7 +54,7 @@ parser.add_argument('--save-model', action='store_true', default=False,
                     help='For Saving the current Model')
 args = parser.parse_args()
 
-cudnn.benchmark = True
+#cudnn.benchmark = True
 
 
 class HybridTrainPipe(Pipeline):
@@ -74,48 +74,34 @@ class HybridTrainPipe(Pipeline):
     ):
         super(HybridTrainPipe, self).__init__(batch_size, num_threads,
                                               device_id, seed = 12 + device_id)
-        self.input = ops.FileReader(file_root = data_dir, random_shuffle = True)
+        self.input = ops.FileReader(file_root = data_dir, random_shuffle = True, initial_fill = 23000)
         # let user decide which pipeline works him
         if dali_cpu:
             dali_device = 'cpu'
             self.decode = ops.HostDecoder(device = dali_device, output_type = types.RGB)
         else:
             dali_device = 'gpu'
-            self.decode = ops.ImageDecoder(device = 'mixed',
-                                            output_type = types.RGB,
-                                            device_memory_padding = 211025920,
-                                            host_memory_padding = 140544512
-            )
+            self.decode = ops.ImageDecoder(device = "mixed", output_type = types.RGB)
 
         self.rrc = ops.RandomResizedCrop(device = dali_device, size = (crop, crop))
-        self.cmnp = ops.CropMirrorNormalize(device = 'gpu',
-                                            output_type = types.FLOAT,
-                                            output_layout = types.NCHW,
-                                            crop = (crop, crop),
-                                            image_type = types.RGB,
-                                            mean = [0.485 * 255, 0.456 * 255, 0.406 * 255],
-                                            std = [0.229 * 255, 0.224 * 255, 0.225 * 255]
-        )
-        self.coin = ops.CoinFlip(probability = 0.5)
 
     def define_graph(self):
-        rng = self.coin()
         self.jpegs, self.labels = self.input(name = "Reader")
         images = self.decode(self.jpegs)
         images = self.rrc(images)
-        output = self.cmnp(images.gpu(), mirror = rng)
-        return [output, self.labels]
+        self.labels = self.labels.gpu()
+        return [images, self.labels]
 
 
 def train(args, model, device, train_loader, criterion, optimizer, epoch):
     model.train()
-    elapsed_time = 0.0
-    end = time.time()
 
     for batch_idx, data in tqdm(enumerate(train_loader)):
-        data = data[0]["data"]
-        target = data[0]["label"].squeeze().cuda().long()
-
+        target = data[0]['label'].squeeze().cuda(6, non_blocking = True).long()
+        data = data[0]["data"].cuda(6, non_blocking=True).type(torch.cuda.FloatTensor)
+        data = data.permute(0, 3, 1, 2)
+        #data = data.type(torch.cuda.FloatTensor)
+        #data = data.cuda(6, non_blocking=True)
         data_var = Variable(data)
         target_var = Variable(target)
 
@@ -128,17 +114,22 @@ def train(args, model, device, train_loader, criterion, optimizer, epoch):
         optimizer.step()
         torch.cuda.synchronize()
 
-        elapsed_time = elapsed_time + time.time() - end
-        end = time.time()
+        #print(len(target))
+        #if (batch_idx + 1) % args.log_interval == 0:
+        #    print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+        #        epoch, batch_idx * len(data), 23000,
+        #        100. * batch_idx / 23000, loss.item()))
 
-        if (batch_idx + 1) % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
-            print(f"Average Time(batch time): {elapsed_time / args.log_interval}")
-            elapsed_time = 0.0
-            if args.dry_run:
-                break
+# For basic dataloader
+def train_basic(args, model, device, train_loader, criterion, optimizer, epoch):
+    model.train()
+    for batch_idx, (data, target) in tqdm(enumerate(train_loader)):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
 
 
 def main():
@@ -146,8 +137,8 @@ def main():
     args.world_size = 1
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
-    net = model.resnet50(num_classes = 2).to(device)
+    device = torch.device("cuda:6" if use_cuda else "cpu")
+    net = models.resnet50(num_classes = 2).to(device)
 
     # Define loss function and optimizer
     criterion = nn.functional.cross_entropy
@@ -155,7 +146,7 @@ def main():
 
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     torch.manual_seed(args.seed)
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda:6" if use_cuda else "cpu")
 
     # Define Training Arguments
     train_kwargs = {'batch_size' : args.batch_size}
@@ -168,23 +159,58 @@ def main():
         train_kwargs.update(cuda_kwargs)
 
     # DALI Loader
+    #pipe = HybridTrainPipe(batch_size = args.batch_size,
+    #                       num_threads = 4,
+    #                       device_id = 7,
+    #                       data_dir = DOG_CAT_PATH
+    #)
     pipe = HybridTrainPipe(batch_size = args.batch_size,
                            num_threads = 4,
-                           device_id = 7,
+                           device_id = 6,
                            data_dir = DOG_CAT_PATH
     )
     pipe.build()
 
-    train_loader = DALIClassificationIterator(pipe, size = int(pipe.epoch_size("Reader") / args.world_size))
+    # DALI
+    train_loader_dali = DALIClassificationIterator(pipe, size = 23000)
 
+    # Basic
+    transform = transforms.Compose([
+        transforms.CenterCrop(CROP_SIZE),
+        transforms.ToTensor()
+    ])
+    dogcat_dataset = ImageFolder(DOG_CAT_PATH, transform)
+    train_loader = DataLoader(dogcat_dataset, batch_size=args.batch_size)
+
+    # Common
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
-    for epoch in range(1, args.epochs + 1):
-        train(args, net, device, train_loader, criterion, optimizer, epoch)
-        scheduler.step(1)
+    criterion = nn.functional.cross_entropy
 
+    # Start epoch
+    for epoch in range(1, args.epochs + 1):
+        train(args, net, device, train_loader_dali, criterion, optimizer, epoch)
+        #train_basic(args, net, device, train_loader, criterion, optimizer, epoch)
+        #print(f"Cost time for first epoch: {time.time() - start}")
+        #scheduler.step(1)
+        #break
+    start = time.time()
+    for i, (data,target) in tqdm(enumerate(train_loader)):
+        data, target = data.to('cuda:6'), target.to('cuda:6')
+    test_time = time.time() - start
+    print(f"Pytorch dataloader cost time: {test_time}")
+
+    start = time.time()
+    for i, data in tqdm(enumerate(train_loader_dali)):
+        target = data[0]['label'].squeeze().cuda(6, non_blocking = True).long()
+        data = data[0]["data"]
+        data = data.permute(0, 3, 1, 2)
+        data = data.type(torch.cuda.FloatTensor)
+    test_time = time.time() - start
+    print(f"Dali cost time: {test_time}")
     if args.save_model:
         torch.save(net.state_dict(), "DALI_final.pt")
 
 
 if __name__ == "__main__":
+    #os.environ['CUDA_VISIBLE_DEVICES'] = "6"
     main()

@@ -98,7 +98,7 @@ def  main():
     test_loader = DataLoader(dataset2, **test_kwargs)
 
     net = model.densenet201(num_classes = 10).to(device)
-    optimizer = optim.Adadelta(net.parameters(), lr = args.lr)
+    optimizer = optim.SGD(net.parameters(), lr = args.lr)
 
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size = 1, gamma = args.gamma)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
