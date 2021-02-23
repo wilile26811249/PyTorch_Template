@@ -43,8 +43,8 @@ basic_transform_gray = T.Compose([
 ])
 
 val_transform = T.Compose([
-    T.ToTensor(),
     T.RandomCrop(3, 32, 32),
+    T.ToTensor()
 ])
 
 train_transform = T.Compose([

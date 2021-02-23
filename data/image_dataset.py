@@ -70,11 +70,7 @@ class ImageDataset:
         if self.transform:
             image = self.transform(image)
         else:
-            transform_test = transforms.Compose([
-                transforms.RandomCrop(3,32,32),
-                transforms.ToTensor()
-            ])
-            image = transform_test(image)
+            image = val_transform(image)
 
         return {
             "image" : torch.as_tensor(image, dtype = torch.float),
