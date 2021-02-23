@@ -17,8 +17,8 @@ class ImageDataset:
         root_dir: str,
         targets: Optional[Callable] = None,
         resize: Optional[List[int]] = None,
-        backend: Optional[str]= 'pil',
-        channel_first: Optional[bool]= True,
+        backend: Optional[str] = 'pil',
+        channel_first: Optional[bool] = True,
         transform: Optional[Callable] = None):
         self.root_dir = root_dir
         self.targets = targets
