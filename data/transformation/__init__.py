@@ -1,7 +1,8 @@
 import numpy as np
+from numpy.core.fromnumeric import resize
 import torchvision.transforms as T
 from imgaug import augmenters as iaa
-
+from torchvision.transforms.transforms import RandomCrop
 
 class ImgAugTransform:
     def __init__(self):
@@ -31,15 +32,24 @@ class ImgAugTransform:
         img = self.aug.augment_image(img)
         return img
 
+basic_transform_rgb = T.Compose([
+    T.ToTensor(),
+    T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+])
+
+basic_transform_gray = T.Compose([
+    T.ToTensor(),
+    T.Normalize((0.5), (0.5))
+])
 
 val_transform = T.Compose([
-        #T.Resize((224, 224)),
-        T.ToTensor()]
-    )
+    T.ToTensor(),
+    T.RandomCrop(3, 32, 32),
+])
 
 train_transform = T.Compose([
-        #T.Resize((224, 224)),
-        ImgAugTransform(),
-        T.ToTensor(),
-        T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),]
-    )
+    ImgAugTransform(),
+    T.RandomCrop(3, 32, 32),
+    T.ToTensor(),
+    T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+])

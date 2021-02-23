@@ -44,6 +44,20 @@ def test(model, device, test_loader):
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
 
+def accuracy(dataloader, net):
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in dataloader:
+            images, labels = data['image'], data['targets']
+            outputs = net(images)
+            outputs = nn.Softmax()(outputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print('Accuracy of the network on the test images: %d %%' % (100 * correct / total))
+
 def  main():
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -91,6 +105,7 @@ def  main():
                        transform = train_transform)
     dataset2 = datasets.CIFAR10('./data', train = False,
                        transform = val_transform)
+
     train_loader = DataLoader(dataset1, **train_kwargs)
     test_loader = DataLoader(dataset2, **test_kwargs)
 
