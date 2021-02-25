@@ -57,7 +57,6 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             train_losses.update(loss.item(), data.size(0))
             loss.backward()
             optimizer.step()
-        scheduler.step(1)
 
         # Validate model
         batch_time = AverageMeter('Time', ':6.3f')
@@ -88,6 +87,7 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             # Measure the elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
+        scheduler.step(val_loss.avg)
         early_stop(val_loss.avg, model)
         if early_stop.early_stop_flag:
             print(f"Epoch [{epoch} / {args.epochs}]: early stop")
