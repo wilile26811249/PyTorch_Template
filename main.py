@@ -1,15 +1,15 @@
 import argparse
 import time
-from tqdm import tqdm
-from data import get_dataloaders
-from data.transformation import train_transform, val_transform
-from utils import AverageMeter, ProgressMeter, EarlyStopping, accuracy
-import model
 
 import torch
-from torch import optim
 import torch.nn.functional as F
+from torch import optim
+from tqdm import tqdm
 
+import model
+from data import get_dataloaders
+from data.transformation import train_transform, val_transform
+from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -115,6 +115,9 @@ def main():
     # Training settings
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+    if args.use_cuda:
+        torch.backends.cudnn.benchmark = True
 
     torch.manual_seed(args.seed)
 
