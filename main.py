@@ -39,6 +39,11 @@ parser.add_argument('--save-model', action='store_true', default=False,
 # Using Tensorboard
 writer = SummaryWriter()
 
+def adjust_lr(args, optimizer, epoch):
+    lr = args.lr * 0.1**((epoch + 1) // 5)
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
 #===============MyDataset========================
 def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
     global writer
@@ -65,6 +70,8 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
 
             acc1 = accuracy(output, target)
             train_top1.update(acc1[0].item(), output.size(0))
+
+        adjust_lr(args, optimizer, epoch)
 
         # Validate model
         batch_time = AverageMeter('Time', ':6.3f')
