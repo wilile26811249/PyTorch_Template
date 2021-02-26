@@ -29,6 +29,7 @@ class ImageDataset:
         self.image_paths = []
         self.targets = []
         self.classes, self.class_to_index = self._find_classes(self.root_dir)
+        self.index_to_class = {value : key for key, value in self.class_to_index.items()}
 
         for target_class in sorted(self.class_to_index.keys()):
             class_index = self.class_to_index[target_class]
