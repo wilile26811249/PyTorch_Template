@@ -5,11 +5,12 @@ import torch
 import torch.nn.functional as F
 from torch import optim
 from tqdm import tqdm
+from tensorboardX import SummaryWriter
 
 import model
 from data import get_dataloaders
 from data.transformation import train_transform, val_transform
-from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy
+from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -35,9 +36,12 @@ parser.add_argument('--early-stop', type=int, default=10,
 parser.add_argument('--save-model', action='store_true', default=False,
                     help='For Saving the current Model(default: False)')
 
+# Using Tensorboard
+writer = SummaryWriter()
 
 #===============MyDataset========================
 def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
+    global writer
     early_stop = EarlyStopping(
         patience = args.early_stop,
         verbose = True,
@@ -47,6 +51,7 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
     for epoch in range(1, args.epochs + 1):
         # Train model
         train_losses = AverageMeter('Train Loss', ':.4e')
+        train_top1 = AverageMeter('Acc@1', ':6.2f')
         model.train()
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
         for _, data_dict in tqdm(enumerate(train_loader)):
@@ -57,6 +62,9 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             train_losses.update(loss.item(), data.size(0))
             loss.backward()
             optimizer.step()
+
+            acc1 = accuracy(output, target)
+            train_top1.update(acc1[0].item(), output.size(0))
 
         # Validate model
         batch_time = AverageMeter('Time', ':6.3f')
@@ -92,6 +100,21 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         if early_stop.early_stop_flag:
             print(f"Epoch [{epoch} / {args.epochs}]: early stop")
             break
+
+        # Use Tensorboard to record and visualize specific important info
+        dis_acc = "X-axis: epoch & Y-axis: accuracy"
+        dis_loss = "X-axis: epoch & Y-axis: loss"
+        dis_lr = "X-axis: epoch & Y-axis: learngin rate"
+        writer.add_scalar("Loss/train", train_losses.avg, epoch, display_name = dis_acc)
+        writer.add_scalar("Loss/val", val_loss.avg, epoch, display_name = dis_acc)
+        writer.add_scalar("Acc/train", train_top1.avg, epoch, display_name = dis_loss)
+        writer.add_scalar("Acc/val", top1.avg, epoch, display_name = dis_loss)
+        writer.add_scalar("Lr/train", get_lr(optimizer), epoch, display_name = dis_lr)
+
+        for name, param in model.named_parameters():
+            writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
+    writer.flush()
+
     model.load_state_dict(torch.load(early_stop.path))
     return model, train_losses.avg, early_stop.best_score
 
@@ -144,12 +167,14 @@ def main():
     )
 
     net = model.resnet18(num_classes = 2).to(device)
+    net = torch.jit.script(net)
     optimizer = optim.SGD(net.parameters(), lr = args.lr)
 
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
     print(f"Final  --->  Train loss: {train_loss}  Val loss: {val_loss}")
 
     test_MyDataset(net, device, test_dl)
+    writer.close()
     if args.save_model:
         torch.save(net.state_dict(), "latest_model.pt")
 

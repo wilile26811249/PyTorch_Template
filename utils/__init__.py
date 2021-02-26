@@ -125,6 +125,11 @@ def accuracy(output, target, topk = (1,)):
         return result
 
 
+def get_lr(optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
+
+
 def init_weights(m):
     """
     Initiate the parameters either from existing checkpoint or from
