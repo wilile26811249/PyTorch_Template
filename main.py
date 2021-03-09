@@ -2,10 +2,12 @@ import argparse
 import time
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
+from tensorboardX import SummaryWriter
 from torch import optim
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
 
 import model
 from data import get_dataloaders
@@ -122,7 +124,8 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
     writer.flush()
 
-    model.load_state_dict(torch.load(early_stop.path))
+    ckpt = torch.load(early_stop.path)
+    model.load_state_dict(ckpt)
     return model, train_losses.avg, early_stop.best_score
 
 
@@ -140,6 +143,10 @@ def test_MyDataset(model, device, test_loader):
             test_acc = accuracy(output, target)
             top1.update(test_acc[0].item(), data.size(0))
     print(f"Test accuracy: {top1.avg}")
+
+def fix_layer(m):
+    for param in m.parameters():
+        param.requires_grad = False
 
 def main():
     # Training settings
@@ -173,8 +180,15 @@ def main():
         **train_kwargs
     )
 
-    net = model.resnet18(num_classes = 2).to(device)
-    net = torch.jit.script(net)
+    net = torchvision.models.resnext50_32x4d(pretrained=True)
+    net.fc = nn.Sequential(
+        nn.Linear(net.fc.in_features,512),
+        nn.ReLU(),
+        nn.Dropout(),
+        nn.Linear(512, 2),
+        nn.Sigmoid()
+    )
+    net.to(device)
     optimizer = optim.SGD(net.parameters(), lr = args.lr)
 
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
@@ -184,7 +198,6 @@ def main():
     writer.close()
     if args.save_model:
         torch.save(net.state_dict(), "latest_model.pt")
-
 
 if __name__ == '__main__':
     main()
