@@ -79,7 +79,7 @@ class EarlyStopping(object):
         self.path = path
 
     def __call__(self, val_loss, model):
-        score = val_loss
+        score = abs(val_loss)
         if self.best_score is None:
             self.best_score = score
             self.save_model(val_loss, model)
