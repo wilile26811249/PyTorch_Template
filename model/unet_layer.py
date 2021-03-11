@@ -7,12 +7,12 @@ class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels = None):
         super().__init__()
         if not mid_channels:
-            out_channels = mid_channels
+            mid_channels = out_channels
         self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size = 3, padding = 0),
+            nn.Conv2d(in_channels, mid_channels, kernel_size = 3, padding = 1),
             nn.BatchNorm2d(num_features = mid_channels),
             nn.ReLU(inplace = True),  # Decrease the memory usage
-            nn.Conv2d(mid_channels, out_channels, kernel_size = 3, padding = 0),
+            nn.Conv2d(mid_channels, out_channels, kernel_size = 3, padding = 1),
             nn.BatchNorm2d(num_features = out_channels),
             nn.ReLU(inplace = True),  # Decrease the memory usage
         )
@@ -22,11 +22,11 @@ class DoubleConv(nn.Module):
 
 
 class Down(nn.Module):
-    def __init__(self, in_channels, out_channels, mid_channels = None):
+    def __init__(self, in_channels, out_channels):
         super().__init__()
         self.maxpool_double_conv = nn.Sequential(
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
-            DoubleConv(in_channels, out_channels, mid_channels)
+            nn.MaxPool2d(kernel_size = 2),
+            DoubleConv(in_channels, out_channels)
         )
 
     def forward(self, x):
@@ -57,6 +57,23 @@ class Up(nn.Module):
         # Calculate the diff for concatenate (Shape: N x C x H x W)
         diff_x = contracting_prev.size()[3] - expansive_up.size()[3]
         diff_y = contracting_prev.size()[2] - expansive_up.size()[2]
-        cropped = contracting_prev[:, :, diff_y : expansive_up.size()[2], diff_x : expansive_up.size()[3]]
-        concated = torch.cat([cropped, expansive_up], dim = 1)
-        return self.double_conv(concated)
+
+        # Follow the original paper'architecture,
+        # the input size and the output size are not match
+        #cropped = contracting_prev[:, :, diff_y : expansive_up.size()[2], diff_x : expansive_up.size()[3]]
+        #concated = torch.cat([cropped, expansive_up], dim = 1)
+        expansive_up = F.pad(
+            expansive_up,
+            [diff_x // 2, diff_x - diff_x // 2, diff_y // 2, diff_y - diff_y // 2]
+        )
+        outputs = torch.cat([contracting_prev, expansive_up], dim = 1)
+        return self.double_conv(outputs)
+
+
+class OutConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(OutConv, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size = 1)
+
+    def forward(self, x):
+        return self.conv(x)
