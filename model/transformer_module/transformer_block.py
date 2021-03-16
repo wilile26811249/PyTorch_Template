@@ -67,7 +67,3 @@ class TransformerEncoder(nn.Module):
         for layer in self.layers:
             x = layer(x, mask)
         return x
-
-model = TransformerEncoder(dim=64, blocks=6, num_heads=8)
-x = torch.rand(16, 10, 64)  # [batch, tokens, dim]
-print(model(x).size())
