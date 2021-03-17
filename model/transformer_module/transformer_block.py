@@ -60,6 +60,22 @@ class TransformerBlock(nn.Module):
 
 
 class TransformerEncoder(nn.Module):
+    """
+    Parameters
+    ----------
+    dim:
+        Token's dimension, EX: word embedding vector size
+    blocks:
+        Number of the transformer block
+    num_heads:
+        The number of distinct representations to learn
+    dim_head:
+        The dimension of the each head
+    dim_linear_block:
+        Number of hidden features of the linear transform
+    dropout:
+        Dropout rate in the linear transform layers
+    """
     def __init__(self,
         dim,
         blocks = 6,
