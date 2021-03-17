@@ -9,11 +9,16 @@ class MultiHeadSelfAttention(nn.Module):
     """
     Implement multi head self attention layer using the "Einstein summation convention".
     Paper: https://arxiv.org/abs/1706.03762
+    Blog: https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a
 
-    Args:
-        dim: Token's dimension, EX: word embedding vector size
-        num_heads: The number of distinct representations to learn
-        dim_head: The dimension of the each head
+    Parameters
+    ----------
+    dim:
+        Token's dimension, EX: word embedding vector size
+    num_heads:
+        The number of distinct representations to learn
+    dim_head:
+        The dimension of the each head
     """
     def __init__(self, dim, num_heads = 8, dim_head = None):
         super(MultiHeadSelfAttention, self).__init__()

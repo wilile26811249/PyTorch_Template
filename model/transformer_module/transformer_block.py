@@ -10,9 +10,32 @@ class TransformerBlock(nn.Module):
     """
     Implement transformer block in the paper "Attention is all you need"
     Paper: https://arxiv.org/abs/1706.03762
+
+    Parameters
+    ----------
+    dim:
+        Token's dimension, EX: word embedding vector size
+    num_heads:
+        The number of distinct representations to learn
+    dim_head:
+        The dimension of the each head
+    dim_linear_block:
+        Number of hidden features of the linear transform
+    activation:
+        Activation function apply in the linear transform layer
+    dropout:
+        Dropout rate in the linear transform layers
+    mhsa:
+        Optional[MultiHeadSelfAttention object | None]
     """
-    def __init__(self, dim, num_heads = 8, dim_head = None,
-        dim_linear_block = 1024, activation = nn.ReLU, dropout = 0.1, mhsa = None
+    def __init__(self,
+        dim,
+        num_heads = 8,
+        dim_head = None,
+        dim_linear_block = 1024,
+        activation = nn.GELU,
+        dropout = 0.1,
+        mhsa = None
     ):
         super(TransformerBlock, self).__init__()
         self.mhsa = mhsa if mhsa is not None else MultiHeadSelfAttention(dim, num_heads, dim_head)
@@ -23,7 +46,7 @@ class TransformerBlock(nn.Module):
         # Positionwise fully connected feed-forward network
         self.linear_transform = nn.Sequential(
             nn.Linear(dim, dim_linear_block),
-            activation(),  # Default is ReLU
+            activation(),  # Default is GeLU, can try relu、selu、elu...etc
             nn.Dropout(dropout),
             nn.Linear(dim_linear_block, dim),
             nn.Dropout(dropout)
@@ -46,7 +69,7 @@ class TransformerEncoder(nn.Module):
         dropout = 0
     ):
         super().__init__()
-        self.layers = self._make_layer(dim, blocks, num_heads, dim_head, dim_linear_block, dropout = dropout)
+        self.blocks = self._make_layer(dim, blocks, num_heads, dim_head, dim_linear_block, dropout = dropout)
 
 
     def _make_layer(self,
@@ -64,6 +87,6 @@ class TransformerEncoder(nn.Module):
 
 
     def forward(self, x, mask = None):
-        for layer in self.layers:
-            x = layer(x, mask)
+        for block in self.blocks:
+            x = block(x, mask)
         return x

@@ -11,6 +11,11 @@ class SelfAttention(nn.Module):
     Implement self attention layer using the "Einstein summation convention".
     Paper: https://arxiv.org/abs/1706.03762
     Blog: https://towardsdatascience.com/illustrated-self-attention-2d627e33b20a
+
+    Parameters
+    ----------
+    dim:
+        Token's dimension, EX: word embedding vector size
     """
     def __init__(self, dim = 3):
         super(SelfAttention, self).__init__()
@@ -47,7 +52,8 @@ class SelfAttention(nn.Module):
             scale_dot_product = scale_dot_product.masked_fill(mask, -np.inf)
 
         attention = torch.softmax(scale_dot_product, dim = -1)
-        return torch.einsum('b i j, b j d -> b i d', attention, v)
+        x = torch.einsum('b i j, b j d -> b i d', attention, v)
+        return x
 
 # Test
 # self_attn = SelfAttention(dim = 3)
