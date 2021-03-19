@@ -57,6 +57,11 @@ for epoch in range(1, epochs + 1):
             break
 ```
 ---
+# Runnung experiments
+```python=
+python main.py --epochs 10 --batch-size 64 --early-stop 10
+```
+---
 # Reference
 1. **D. Tran, L. Bourdev, R. Fergus, L. Torresani, and M. Paluri.
 Learning spatiotemporal features with 3d convolutional networks.
@@ -74,13 +79,11 @@ T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., et al.: An image is wort
 16x16 words: Transformers for image recognition at scale. In: ICLR (2021)**
 ---
 # TODOs
-- [] Capsule Net
-- [] Optimizer Wrapper (Ex: LookaHead)
+- [ ] More Computer Vision related model
+- [ ] Optimizer Wrapper (Ex: LookaHead)
+- [ ] Use config to construct model
 - [x] tensorboardX logger support
 - [x] wandb logger support
-.
-.
-.
 ---
 # Author
 **Hong-Jia Chen**
