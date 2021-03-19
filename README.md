@@ -22,8 +22,12 @@ pip install requirements.txt
 ---
 ## Usage
 ```python=
+import tqdm
 import model
 from utils import AverageMeter, EarlyStopping, ProgressMeter
+
+import torch
+from torch.nn import functional as F
 
 densenet_121 = model.densenet121(pretrained = True)
 early_stop = EarlyStopping(
