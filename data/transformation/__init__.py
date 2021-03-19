@@ -1,8 +1,6 @@
 import numpy as np
-from numpy.core.fromnumeric import resize
 import torchvision.transforms as T
 from imgaug import augmenters as iaa
-from torchvision.transforms.transforms import RandomCrop
 
 class ImgAugTransform:
     def __init__(self):

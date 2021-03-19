@@ -107,7 +107,7 @@ class Bottleneck(nn.Module):
         base_width: int = 1,
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None
-        ) -> None:
+    ) -> None:
         super(Bottleneck, self).__init__()
 
         if norm_layer is None:
@@ -158,7 +158,7 @@ class ResNet(nn.Module):
         width_per_group: int = 64,
         replace_stride_with_dilation: Optional[List[bool]] = None,
         norm_layer: Optional[Callable[..., nn.Module]] = None
-        ) -> None:
+    ) -> None:
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d

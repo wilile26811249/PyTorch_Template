@@ -1,5 +1,7 @@
 import argparse
 import time
+import model
+# import wandb
 
 import torch
 import torch.nn as nn
@@ -9,7 +11,7 @@ from tensorboardX import SummaryWriter
 from torch import optim
 from tqdm import tqdm
 
-import model
+from model.transformer_module import TransformerEncoder, TransformerBlock
 from data import get_dataloaders
 from data.transformation import train_transform, val_transform
 from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
@@ -38,8 +40,11 @@ parser.add_argument('--early-stop', type=int, default=10,
 parser.add_argument('--save-model', action='store_true', default=False,
                     help='For Saving the current Model(default: False)')
 
+# Using wandb
+# wandb.init(project = "Training on retina classification(Lab508)")
+
 # Using Tensorboard
-writer = SummaryWriter()
+# writer = SummaryWriter()
 
 def adjust_lr(args, optimizer, epoch):
     lr = args.lr * 0.1**((epoch + 1) // 5)
@@ -114,15 +119,23 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         dis_acc = "X-axis: epoch & Y-axis: accuracy"
         dis_loss = "X-axis: epoch & Y-axis: loss"
         dis_lr = "X-axis: epoch & Y-axis: learngin rate"
-        writer.add_scalar("Loss/train", train_losses.avg, epoch, display_name = dis_acc)
-        writer.add_scalar("Loss/val", val_loss.avg, epoch, display_name = dis_acc)
-        writer.add_scalar("Acc/train", train_top1.avg, epoch, display_name = dis_loss)
-        writer.add_scalar("Acc/val", top1.avg, epoch, display_name = dis_loss)
-        writer.add_scalar("Lr/train", get_lr(optimizer), epoch, display_name = dis_lr)
+        # writer.add_scalar("Loss/train", train_losses.avg, epoch, display_name = dis_acc)
+        # writer.add_scalar("Loss/val", val_loss.avg, epoch, display_name = dis_acc)
+        # writer.add_scalar("Acc/train", train_top1.avg, epoch, display_name = dis_loss)
+        # writer.add_scalar("Acc/val", top1.avg, epoch, display_name = dis_loss)
+        # writer.add_scalar("Lr/train", get_lr(optimizer), epoch, display_name = dis_lr)
 
-        for name, param in model.named_parameters():
-            writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
-    writer.flush()
+        # wandb.log({
+        #     "Loss/train" : train_losses.avg,
+        #     "Loss/val" : val_loss.avg,
+        #     "Acc/train" : train_top1.avg,
+        #     "Acc/val" : top1.avg,
+        #     "Lr/train" : get_lr(optimizer)
+        # })
+
+    #     for name, param in model.named_parameters():
+    #         writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
+    # writer.flush()
 
     ckpt = torch.load(early_stop.path)
     model.load_state_dict(ckpt)
@@ -153,6 +166,8 @@ def main():
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
 
+    # wandb.config.update(args)
+
     if args.use_cuda:
         torch.backends.cudnn.benchmark = True
 
@@ -161,12 +176,11 @@ def main():
     device = torch.device("cuda" if args.use_cuda else "cpu")
 
     train_kwargs = {'batch_size' : args.batch_size, 'shuffle' : True}
-    test_kwargs = {'batch_size' : args.test_batch_size, 'shuffle' : True}
+    test_kwargs = {'batch_size' : args.test_batch_size, 'shuffle' : False}
     if args.use_cuda:
         cuda_kwargs = {
             'num_workers': 4,
-            'pin_memory': True,
-            'shuffle': True
+            'pin_memory': True
         }
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
@@ -177,25 +191,29 @@ def main():
         test_dir = path,
         train_transform = train_transform,
         test_transform = val_transform,
+        split = (0.8, 0.2),
         **train_kwargs
     )
 
-    net = torchvision.models.resnext50_32x4d(pretrained=True)
-    net.fc = nn.Sequential(
-        nn.Linear(net.fc.in_features,512),
-        nn.ReLU(),
-        nn.Dropout(),
-        nn.Linear(512, 2),
-        nn.Sigmoid()
-    )
+    # net = torchvision.models.resnext50_32x4d(pretrained=True)
+    # net.fc = nn.Sequential(
+    #     nn.Linear(net.fc.in_features,512),
+    #     nn.ReLU(),
+    #     nn.Dropout(),
+    #     nn.Linear(512, 2),
+    #     nn.Sigmoid()
+    # )
+    net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
     net.to(device)
+    # wandb.watch(net)
     optimizer = optim.SGD(net.parameters(), lr = args.lr)
 
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
     print(f"Final  --->  Train loss: {train_loss}  Val loss: {val_loss}")
 
-    test_MyDataset(net, device, test_dl)
-    writer.close()
+    # test_MyDataset(net, device, test_dl)
+    test_MyDataset(net, device, val_dl)
+    # writer.close()
     if args.save_model:
         torch.save(net.state_dict(), "latest_model.pt")
 

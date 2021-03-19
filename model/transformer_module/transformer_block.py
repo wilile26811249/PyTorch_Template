@@ -1,6 +1,6 @@
 import numpy as np
 from einops import rearrange
-from MultiHeadAttn import MultiHeadSelfAttention
+from .MultiHeadAttn import MultiHeadSelfAttention
 
 import torch
 import torch.nn as nn
