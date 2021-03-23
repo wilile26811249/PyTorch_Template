@@ -70,10 +70,9 @@ class ImageDataset:
 
         if self.transform:
             image = self.transform(image)
-        else:
-            image = val_transform(image)
+        target = torch.as_tensor(targets, dtype = torch.long)
 
         return {
-            "image" : torch.as_tensor(image, dtype = torch.float),
-            "targets" : torch.as_tensor(targets, dtype = torch.long)
+            'image' : image,
+            'targets' : target
         }
