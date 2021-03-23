@@ -196,7 +196,7 @@ def main():
     net.to(device)
     wandb.watch(net)
 
-    optimizer = optim.SGD(net.parameters(), lr = args.lr)
+    optimizer = optim.SGD(net.parameters(), lr = args.lr, momentum = 0.9)
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
     print(f"Final  --->  Train loss: {train_loss}  Val loss: {val_loss}")
 
