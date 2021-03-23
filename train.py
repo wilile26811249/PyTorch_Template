@@ -39,7 +39,7 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 parser.add_argument('--early-stop', type=int, default=10,
                     help="After n consecutive epochs,val_loss isn't improved then early stop")
 parser.add_argument('--model-path', type=str, default="checkpoint.pt",
-                    help='For Saving the current Model(default: False)')
+                    help='For Saving the current Model(default: checlpoint.pt)')
 
 WEIGHTS_PATH = "./weights"
 if not os.path.exists(WEIGHTS_PATH):
