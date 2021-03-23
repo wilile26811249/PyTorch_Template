@@ -1,3 +1,4 @@
+import os
 import argparse
 import time
 import model
@@ -37,11 +38,15 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='How many batches to wait before logging training status')
 parser.add_argument('--early-stop', type=int, default=10,
                     help="After n consecutive epochs,val_loss isn't improved then early stop")
-parser.add_argument('--save-model', action='store_true', default=False,
+parser.add_argument('--model-path', type=str, default="checkpoint.pt",
                     help='For Saving the current Model(default: False)')
 
+WEIGHTS_PATH = "./weights"
+if not os.path.exists(WEIGHTS_PATH):
+    os.makedirs(WEIGHTS_PATH)
+
 # Using wandb
-wandb.init(project = "Training on retina classification(Lab508)_Train")
+# wandb.init(project = "Training on retina classification(Lab508)_Train")
 
 def adjust_lr(args, optimizer, epoch):
     lr = args.lr * 0.1**((epoch + 1) // 5)
@@ -54,11 +59,12 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
     early_stop = EarlyStopping(
         patience = args.early_stop,
         verbose = True,
-        delta = 1e-3
+        delta = 1e-3,
+        path = os.path.join(WEIGHTS_PATH, args.model_path)
     )
 
     scheduler_steplr = optim.lr_scheduler.StepLR(optimizer, step_size = 5, gamma = 0.1)
-    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier = 10, total_epoch = args.epochs // 3, after_scheduler = scheduler_steplr)
+    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier = 10, total_epoch = 10, after_scheduler = scheduler_steplr)
     for epoch in range(1, args.epochs + 1):
         # Train model
         train_losses = AverageMeter('Train Loss', ':.4e')
@@ -112,11 +118,6 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             # Measure the elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-        # scheduler.step(val_loss.avg)c
-        early_stop(val_loss.avg, model)
-        if early_stop.early_stop_flag:
-            print(f"Epoch [{epoch} / {args.epochs}]: early stop")
-            break
 
         wandb.log({
             "Loss/train" : train_losses.avg,
@@ -124,6 +125,12 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             "Acc/train" : train_top1.avg,
             "Acc/val" : top1.avg
         })
+
+        # scheduler.step(val_loss.avg)c
+        early_stop(val_loss.avg, model)
+        if early_stop.early_stop_flag:
+            print(f"Epoch [{epoch} / {args.epochs}]: early stop")
+            break
 
     ckpt = torch.load(early_stop.path)
     model.load_state_dict(ckpt)
@@ -185,7 +192,7 @@ def main():
     )
 
     # net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
-    net = torchvision.models.resnext50_32x4d(pretrained=True)
+    net = torchvision.models.resnet50(pretrained=True)
     net.fc = nn.Sequential(
         nn.Linear(net.fc.in_features,512),
         nn.ReLU(),
@@ -201,8 +208,6 @@ def main():
     print(f"Final  --->  Train loss: {train_loss}  Val loss: {val_loss}")
 
     test_MyDataset(net, device, val_dl)
-    if args.save_model:
-        torch.save(net.state_dict(), "latest_model.pt")
 
 if __name__ == '__main__':
     main()
