@@ -38,7 +38,7 @@ class VIT(nn.Module):
         creates an extra CLS token that we will index in the final classification layer
     """
     def __init__(self,
-        img_dim,
+        img_dim = 224,
         in_channels = 3,
         patch_size = 16,
         num_classes = 10,
@@ -116,3 +116,34 @@ class VIT(nn.Module):
         y = self.transformer(patch_embeddings, mask)
 
         return self.mlp_head(y[:, 0, :]) if self.classification else y[:, 1: , :]
+
+
+def VIT_B_16(img_dim = 224, num_classes = 2):
+    return VIT(
+        img_dim = 224,
+        blocks = 12,
+        dim_linear_block = 768,
+        dim = 3072,
+        num_heads = 12,
+        num_classes = num_classes
+    )
+
+def VIT_L_16(img_dim = 224, num_classes = 2):
+    return VIT(
+        img_dim = 224,
+        blocks = 24,
+        dim_linear_block = 1024,
+        dim = 4096,
+        num_heads = 16,
+        num_classes = num_classes
+    )
+
+def VIT_H_16(img_dim = 224, num_classes = 2):
+    return VIT(
+        img_dim = 224,
+        blocks = 32,
+        dim_linear_block = 1280,
+        dim = 5120,
+        num_heads = 16,
+        num_classes = num_classes
+    )
