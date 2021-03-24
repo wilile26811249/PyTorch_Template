@@ -18,6 +18,8 @@ from data.transformation import train_transform, val_transform
 from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
 
 parser = argparse.ArgumentParser(description = 'PyTorch Medical Project')
+parser.add_argument("--gpu_devices", type=int, nargs='+', default=None,
+                    help="Select specific GPU to run the model")
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='Input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=64, metavar='N',
@@ -171,6 +173,9 @@ def main():
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
 
+    gpu_devices = ','.join([str(id) for id in args.gpu_devices])
+    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_devices
+
     # Using wandb
     wandb.init(project = "Training on retina classification(Lab508)_Train")
     if args.wandb_name != "":
@@ -210,6 +215,7 @@ def main():
         nn.Linear(512, 2),
         nn.Sigmoid()
     )
+    net = nn.DataParllel(net)
     net.to(device)
     wandb.watch(net)
 
