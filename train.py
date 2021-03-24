@@ -17,7 +17,7 @@ from data import get_dataloaders
 from data.transformation import train_transform, val_transform
 from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
 
-parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser = argparse.ArgumentParser(description = 'PyTorch Medical Project')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='Input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=64, metavar='N',
@@ -26,34 +26,39 @@ parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='Number of epochs to train (default: 20)')
 parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                     help='Learning rate (default: 0.01)')
-parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-                    help='Learning rate step gamma (default: 0.7)')
+parser.add_argument('--warmup-epoch', type=int, default=10,
+                    help='Warmup epoch (default: 10)')
+parser.add_argument('--gamma', type=float, default=0.1, metavar='M',
+                    help='Learning rate step gamma for StepLR (default: 0.1)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='Disables CUDA training(default: False)')
 parser.add_argument('--dry-run', action='store_true', default=False,
                     help='Quickly check a single pass')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='Random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                    help='How many batches to wait before logging training status')
 parser.add_argument('--early-stop', type=int, default=10,
                     help="After n consecutive epochs,val_loss isn't improved then early stop")
 parser.add_argument('--model-path', type=str, default="checkpoint.pt",
-                    help='For Saving the current Model(default: checlpoint.pt)')
+                    help='For Saving the current Model(default: checkpoint.pt)')
+parser.add_argument('--wandb-name', type=str, default="",
+                    help='Setting run name for wandb (default: "").')
+parser.add_argument('--train-data-path', type=str, default="./data/retina/train",
+                    help='Path for the training data (default: ./data/retina/train')
+parser.add_argument('--test-data-path', type=str, default="./data/retina/train",
+                    help='Path for the testing data (default: ./data/retina/train')
+
 
 WEIGHTS_PATH = "./weights"
 if not os.path.exists(WEIGHTS_PATH):
     os.makedirs(WEIGHTS_PATH)
 
-# Using wandb
-# wandb.init(project = "Training on retina classification(Lab508)_Train")
 
 def adjust_lr(args, optimizer, epoch):
     lr = args.lr * 0.1**((epoch + 1) // 5)
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-#===============MyDataset========================
+
 def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
     global writer
     early_stop = EarlyStopping(
@@ -63,8 +68,13 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         path = os.path.join(WEIGHTS_PATH, args.model_path)
     )
 
-    scheduler_steplr = optim.lr_scheduler.StepLR(optimizer, step_size = 5, gamma = 0.1)
-    scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier = 10, total_epoch = 10, after_scheduler = scheduler_steplr)
+    scheduler_steplr = optim.lr_scheduler.StepLR(optimizer, step_size = 5, gamma = args.gamma)
+    scheduler_warmup = GradualWarmupScheduler(
+        optimizer,
+        multiplier = 10,
+        total_epoch = 10,
+        after_scheduler = scheduler_steplr
+    )
     for epoch in range(1, args.epochs + 1):
         # Train model
         train_losses = AverageMeter('Train Loss', ':.4e')
@@ -72,15 +82,12 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         model.train()
         scheduler_warmup.step(epoch)
 
-        # this zero gradient update is needed to avoid a warning message, issue #8.
-        # optimizer.zero_grad()
-        # optimizer.step()
-
         for _, data_dict in tqdm(enumerate(train_loader)):
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none = True)
             data, target = data_dict['image'].to(device), data_dict['targets'].to(device)
-            output = model(data)
-            loss = F.cross_entropy(output, target)
+            with torch.cuda.amp.autocast():
+                output = model(data)
+                loss = F.cross_entropy(output, target)
             train_losses.update(loss.item(), data.size(0))
             loss.backward()
             optimizer.step()
@@ -126,7 +133,6 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             "Acc/val" : top1.avg
         })
 
-        # scheduler.step(val_loss.avg)c
         early_stop(val_loss.avg, model)
         if early_stop.early_stop_flag:
             print(f"Epoch [{epoch} / {args.epochs}]: early stop")
@@ -153,22 +159,26 @@ def test_MyDataset(model, device, test_loader):
     print(f"Test accuracy: {top1.avg}")
     wandb.log({'Acc/tes' : top1.avg})
 
+
 def fix_layer(m):
     for param in m.parameters():
         param.requires_grad = False
 
+
 def main():
     # Training settings
+    torch.manual_seed(args.seed)
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
 
+    # Using wandb
+    wandb.init(project = "Training on retina classification(Lab508)_Train")
+    if args.wandb_name != "":
+        wandb.run.name = args.wandb_name
     wandb.config.update(args)
 
     if args.use_cuda:
         torch.backends.cudnn.benchmark = True
-
-    torch.manual_seed(args.seed)
-
     device = torch.device("cuda" if args.use_cuda else "cpu")
 
     train_kwargs = {'batch_size' : args.batch_size, 'shuffle' : True}
@@ -181,20 +191,20 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    path = './data/retina/train'
+
     train_dl, val_dl, test_dl = get_dataloaders(
-        train_dir = path,
-        test_dir = path,
-        train_transform = train_transform,
+        train_dir = args.train_data_path,
+        test_dir = args.test_data_path,
+        train_transform = val_transform,
         test_transform = val_transform,
         split = (0.8, 0.2),
         **train_kwargs
     )
 
     # net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
-    net = torchvision.models.resnet50(pretrained=True)
+    net = torchvision.models.resnet50(pretrained = True)
     net.fc = nn.Sequential(
-        nn.Linear(net.fc.in_features,512),
+        nn.Linear(net.fc.in_features, 512),
         nn.ReLU(),
         nn.Dropout(),
         nn.Linear(512, 2),
