@@ -52,3 +52,11 @@ train_transform = T.Compose([
     T.ToTensor(),
     T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
+
+
+auto_transform = T.Compose([
+    T.CenterCrop(224),
+    T.AutoAugment(),
+    T.ToTensor(),
+    T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+])
