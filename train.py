@@ -74,9 +74,10 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
     scheduler_warmup = GradualWarmupScheduler(
         optimizer,
         multiplier = 10,
-        total_epoch = 10,
+        total_epoch = args.warmup_epoch,
         after_scheduler = scheduler_steplr
     )
+
     for epoch in range(1, args.epochs + 1):
         # Train model
         train_losses = AverageMeter('Train Loss', ':.4e')
