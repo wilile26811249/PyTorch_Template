@@ -47,7 +47,7 @@ class VIT(nn.Module):
         num_heads = 8,
         dim_linear_block = 1024,
         dim_head = None,
-        dropout = 0,
+        dropout = 0.1,
         transformer = None,
         classification = True
     ):
@@ -114,16 +114,17 @@ class VIT(nn.Module):
 
         # feed patch_embeddings and output of transformer. shape: [batch, tokens, dim]
         y = self.transformer(patch_embeddings, mask)
-
-        return self.mlp_head(y[:, 0, :]) if self.classification else y[:, 1: , :]
+        result = self.mlp_head(y[:, 0, :])
+        return result
+        # return self.mlp_head(y[:, 0, :]) if self.classification else y[:, 1: , :]
 
 
 def VIT_B_16(img_dim = 224, num_classes = 2):
     return VIT(
         img_dim = 224,
         blocks = 12,
-        dim_linear_block = 768,
-        dim = 3072,
+        dim_linear_block = 3072,
+        dim = 768,
         num_heads = 12,
         num_classes = num_classes
     )
@@ -132,8 +133,8 @@ def VIT_L_16(img_dim = 224, num_classes = 2):
     return VIT(
         img_dim = 224,
         blocks = 24,
-        dim_linear_block = 1024,
-        dim = 4096,
+        dim_linear_block = 4096,
+        dim = 1024,
         num_heads = 16,
         num_classes = num_classes
     )
@@ -142,8 +143,8 @@ def VIT_H_16(img_dim = 224, num_classes = 2):
     return VIT(
         img_dim = 224,
         blocks = 32,
-        dim_linear_block = 1280,
-        dim = 5120,
+        dim_linear_block = 5120,
+        dim = 1280,
         num_heads = 16,
         num_classes = num_classes
     )
