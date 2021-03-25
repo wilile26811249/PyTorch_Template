@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from model.transformer_module import TransformerEncoder, TransformerBlock
 from data import get_dataloaders
-from data.transformation import train_transform, val_transform
+from data.transformation import train_transform, val_transform, auto_transform
 from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
 
 parser = argparse.ArgumentParser(description = 'PyTorch Medical Project')
@@ -169,9 +169,10 @@ def fix_layer(m):
 
 def main():
     # Training settings
-    torch.manual_seed(args.seed)
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
+
+    torch.manual_seed(args.seed)
 
     gpu_devices = ','.join([str(id) for id in args.gpu_devices])
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_devices
@@ -200,7 +201,7 @@ def main():
     train_dl, val_dl, test_dl = get_dataloaders(
         train_dir = args.train_data_path,
         test_dir = args.test_data_path,
-        train_transform = val_transform,
+        train_transform = auto_transform,
         test_transform = val_transform,
         split = (0.8, 0.2),
         **train_kwargs
@@ -215,7 +216,7 @@ def main():
         nn.Linear(512, 2),
         nn.Sigmoid()
     )
-    net = nn.DataParllel(net)
+    net = nn.DataParallel(net)
     net.to(device)
     wandb.watch(net)
 
