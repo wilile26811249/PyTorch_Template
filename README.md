@@ -22,46 +22,46 @@ pip install requirements.txt
 ---
 ## Usage
 ```python=
-import tqdm
-import model
-from utils import AverageMeter, EarlyStopping, ProgressMeter
+usage: train.py [-h] [--gpu_devices GPU_DEVICES [GPU_DEVICES ...]]
+                [--batch-size N] [--test-batch-size N] [--epochs N] [--lr LR]
+                [--warmup-epoch WARMUP_EPOCH] [--gamma M] [--no-cuda]
+                [--dry-run] [--seed S] [--early-stop EARLY_STOP]
+                [--model-path MODEL_PATH] [--wandb-name WANDB_NAME]
+                [--train-data-path TRAIN_DATA_PATH]
+                [--test-data-path TEST_DATA_PATH]
 
-import torch
-from torch.nn import functional as F
+PyTorch Medical Project
 
-densenet_121 = model.densenet121(pretrained = True)
-early_stop = EarlyStopping(
-    patience = args.early_stop,
-    verbose = True,
-    delta = 1e-3
-)
-
-for epoch in range(1, epochs + 1):
-    # Train model
-    train_losses = AverageMeter('Train Loss', ':.4e')
-    train_top1 = AverageMeter('Acc@1', ':6.2f')
-    model.train()
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
-    for _, data_dict in tqdm(enumerate(train_loader)):
-        data, target = data_dict['image'].to(device), data_dict['targets'].to(device)
-        optimizer.zero_grad()
-        output = model(data)
-        loss = F.cross_entropy(output, target)
-        train_losses.update(loss.item(), data.size(0))
-        loss.backward()
-        optimizer.step()
-
-        acc1 = accuracy(output, target)
-        train_top1.update(acc1[0].item(), output.size(0))
-
-        scheduler.step(train_losses.avg)
-        early_stop(val_loss.avg, model)
-        if early_stop.early_stop_flag:
-            print(f"Epoch [{epoch} / {epochs}]: early stop")
-            break
+optional arguments:
+  -h, --help            show this help message and exit
+  --gpu_devices GPU_DEVICES [GPU_DEVICES ...]
+                        Select specific GPU to run the model
+  --batch-size N        Input batch size for training (default: 64)
+  --test-batch-size N   Input batch size for testing (default: 64)
+  --epochs N            Number of epochs to train (default: 20)
+  --lr LR               Learning rate (default: 0.01)
+  --warmup-epoch WARMUP_EPOCH
+                        Warmup epoch (default: 10)
+  --gamma M             Learning rate step gamma for StepLR (default: 0.1)
+  --no-cuda             Disables CUDA training(default: False)
+  --dry-run             Quickly check a single pass
+  --seed S              Random seed (default: 1)
+  --early-stop EARLY_STOP
+                        After n consecutive epochs,val_loss isn't improved
+                        then early stop
+  --model-path MODEL_PATH
+                        For Saving the current Model(default: checkpoint.pt)
+  --wandb-name WANDB_NAME
+                        Setting run name for wandb (default: "").
+  --train-data-path TRAIN_DATA_PATH
+                        Path for the training data (default:
+                        ./data/retina/train
+  --test-data-path TEST_DATA_PATH
+                        Path for the testing data (default:
+                        ./data/retina/train
 ```
 ---
-# Runnung experiments
+# Running experiments
 ```python=
 python main.py --epochs 10 --batch-size 64 --early-stop 10
 ```
