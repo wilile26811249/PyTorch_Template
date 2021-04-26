@@ -15,7 +15,7 @@ from tqdm import tqdm
 from model.transformer_module import TransformerEncoder, TransformerBlock
 from data import get_dataloaders
 from data.transformation import train_transform, val_transform, auto_transform
-from utils import AverageMeter, EarlyStopping, ProgressMeter, accuracy, get_lr
+from utils import AverageMeter, EarlyStopping, Lookahead, ProgressMeter, accuracy, get_lr
 
 parser = argparse.ArgumentParser(description = 'PyTorch Medical Project')
 parser.add_argument("--gpu_devices", type=int, nargs='+', default=None,
@@ -40,6 +40,8 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='Random seed (default: 1)')
 parser.add_argument('--early-stop', type=int, default=10,
                     help="After n consecutive epochs,val_loss isn't improved then early stop")
+parser.add_argument('--lookahead', action = "store_true",
+                    help='Use lookahead optimizer wraper (default: False)')
 parser.add_argument('--model-path', type=str, default="checkpoint.pt",
                     help='For Saving the current Model(default: checkpoint.pt)')
 parser.add_argument('--wandb-name', type=str, default="",
@@ -62,7 +64,6 @@ def adjust_lr(args, optimizer, epoch):
 
 
 def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
-    global writer
     early_stop = EarlyStopping(
         patience = args.early_stop,
         verbose = True,
@@ -78,6 +79,7 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         after_scheduler = scheduler_steplr
     )
 
+    scaler = torch.cuda.amp.GradScaler()
     for epoch in range(1, args.epochs + 1):
         # Train model
         train_losses = AverageMeter('Train Loss', ':.4e')
@@ -92,8 +94,10 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
                 output = model(data)
                 loss = F.cross_entropy(output, target)
             train_losses.update(loss.item(), data.size(0))
-            loss.backward()
-            optimizer.step()
+            # loss.backward()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             acc1 = accuracy(output, target)
             train_top1.update(acc1[0].item(), output.size(0))
@@ -198,8 +202,7 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-
-    train_dl, val_dl, test_dl = get_dataloaders(
+    train_dl, val_dl, _ = get_dataloaders(
         train_dir = args.train_data_path,
         test_dir = args.test_data_path,
         train_transform = auto_transform,
@@ -208,7 +211,6 @@ def main():
         **train_kwargs
     )
 
-    # net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
     net = torchvision.models.resnet50(pretrained = True)
     net.fc = nn.Sequential(
         nn.Linear(net.fc.in_features, 512),
@@ -222,6 +224,8 @@ def main():
     wandb.watch(net)
 
     optimizer = optim.SGD(net.parameters(), lr = args.lr, momentum = 0.9)
+    if args.lookahead:
+        optimizer = Lookahead(optimizer)
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
     print(f"Final  --->  Train loss: {train_loss}  Val loss: {val_loss}")
 

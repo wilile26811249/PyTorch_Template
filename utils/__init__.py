@@ -4,6 +4,7 @@ from typing import Callable, List, Optional
 import numpy as np
 import torch
 import torch.nn as nn
+from .Lookahead import *
 
 
 class AverageMeter(object):
