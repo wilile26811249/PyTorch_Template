@@ -1,7 +1,8 @@
 import argparse
 import time
 import model
-# import wandb
+from warmup_scheduler import GradualWarmupScheduler
+import wandb
 
 import torch
 import torch.nn as nn
@@ -23,7 +24,7 @@ parser.add_argument('--test-batch-size', type=int, default=64, metavar='N',
                     help='Input batch size for testing (default: 64)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='Number of epochs to train (default: 20)')
-parser.add_argument('--lr', type=float, default=1e-2, metavar='LR',
+parser.add_argument('--lr', type=float, default=1e-3, metavar='LR',
                     help='Learning rate (default: 0.01)')
 parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                     help='Learning rate step gamma (default: 0.7)')
@@ -41,7 +42,7 @@ parser.add_argument('--save-model', action='store_true', default=False,
                     help='For Saving the current Model(default: False)')
 
 # Using wandb
-# wandb.init(project = "Training on retina classification(Lab508)")
+wandb.init(project = "Training on retina classification(Lab508)_NEW")
 
 # Using Tensorboard
 # writer = SummaryWriter()
@@ -65,7 +66,10 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         train_losses = AverageMeter('Train Loss', ':.4e')
         train_top1 = AverageMeter('Acc@1', ':6.2f')
         model.train()
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
+        # scheduler_steplr = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=2)
+        scheduler_steplr = optim.lr_scheduler.StepLR(optimizer, step_size = 5, gamma = 0.1)
+        scheduler_warmup = GradualWarmupScheduler(optimizer, multiplier = 10, total_epoch = 5, after_scheduler = scheduler_steplr)
+        scheduler_warmup.step(epoch)
         for _, data_dict in tqdm(enumerate(train_loader)):
             data, target = data_dict['image'].to(device), data_dict['targets'].to(device)
             optimizer.zero_grad()
@@ -73,7 +77,9 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             loss = F.cross_entropy(output, target)
             train_losses.update(loss.item(), data.size(0))
             loss.backward()
+            print("*****", epoch, optimizer.param_groups[0]['lr'], '*****')
             optimizer.step()
+            wandb.log({'Lr/train' : optimizer.param_groups[0]['lr']})
 
             acc1 = accuracy(output, target)
             train_top1.update(acc1[0].item(), output.size(0))
@@ -109,7 +115,7 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
             # Measure the elapsed time
             batch_time.update(time.time() - end)
             end = time.time()
-        scheduler.step(val_loss.avg)
+        # scheduler.step(val_loss.avg)c
         early_stop(val_loss.avg, model)
         if early_stop.early_stop_flag:
             print(f"Epoch [{epoch} / {args.epochs}]: early stop")
@@ -125,13 +131,12 @@ def train_MyDataset(args, model, device, optimizer, train_loader, val_loader):
         # writer.add_scalar("Acc/val", top1.avg, epoch, display_name = dis_loss)
         # writer.add_scalar("Lr/train", get_lr(optimizer), epoch, display_name = dis_lr)
 
-        # wandb.log({
-        #     "Loss/train" : train_losses.avg,
-        #     "Loss/val" : val_loss.avg,
-        #     "Acc/train" : train_top1.avg,
-        #     "Acc/val" : top1.avg,
-        #     "Lr/train" : get_lr(optimizer)
-        # })
+        wandb.log({
+            "Loss/train" : train_losses.avg,
+            "Loss/val" : val_loss.avg,
+            "Acc/train" : train_top1.avg,
+            "Acc/val" : top1.avg
+        })
 
     #     for name, param in model.named_parameters():
     #         writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
@@ -156,6 +161,7 @@ def test_MyDataset(model, device, test_loader):
             test_acc = accuracy(output, target)
             top1.update(test_acc[0].item(), data.size(0))
     print(f"Test accuracy: {top1.avg}")
+    wandb.log({'Acc/tes' : top1.avg})
 
 def fix_layer(m):
     for param in m.parameters():
@@ -166,7 +172,7 @@ def main():
     args = parser.parse_args()
     args.use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-    # wandb.config.update(args)
+    wandb.config.update(args)
 
     if args.use_cuda:
         torch.backends.cudnn.benchmark = True
@@ -203,9 +209,10 @@ def main():
     #     nn.Linear(512, 2),
     #     nn.Sigmoid()
     # )
-    net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
+    # net = model.VIT(img_dim = 224, num_classes = 2, blocks = 12)
+    net = model.VIT_B_16(num_classes = 2)
     net.to(device)
-    # wandb.watch(net)
+    wandb.watch(net)
     optimizer = optim.SGD(net.parameters(), lr = args.lr)
 
     net, train_loss, val_loss = train_MyDataset(args, net, device, optimizer, train_dl, val_dl)
