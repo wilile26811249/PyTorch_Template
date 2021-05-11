@@ -12,24 +12,26 @@ class GlobalAveragePooling(nn.Module):
         return x.mean(dim = self.dim)
 
 class MLP_Block(nn.Module):
-    def __init__(self, input_dim, hidden_dim):
+    def __init__(self, input_dim, hidden_dim, dropout = 0.1):
         super().__init__()
         self.mlp = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.GELU(),
-            nn.Linear(hidden_dim, input_dim)
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, input_dim),
+            nn.Dropout(dropout)
         )
 
     def forward(self, x):
         return self.mlp(x)
 
 class MixerBlock(nn.Module):
-    def __init__(self, dim, num_patches, token_dim, channel_dim):
+    def __init__(self, dim, num_patches, token_dim, channel_dim, dropout = 0.0):
         super().__init__()
         self.token_mixing = nn.Sequential(
             nn.LayerNorm(dim),
             Rearrange("batch num_patches channel -> batch channel num_patches"),
-            MLP_Block(num_patches, token_dim),
+            MLP_Block(num_patches, token_dim, dropout),
             Rearrange("batch channel num_patches -> batch num_patches channel")
         )
 
@@ -53,7 +55,8 @@ class MLP_Mixer(nn.Module):
         img_size = 256,
         token_dim = 256,
         channel_dim = 2048,
-        num_layers = 8
+        num_layers = 8,
+        dropout = 0.1,
     ):
         super().__init__()
         self.num_patch = (img_size // patch_size) ** 2
@@ -62,7 +65,7 @@ class MLP_Mixer(nn.Module):
             Rearrange("b c h w -> b (h w) c")
         )
         mixer_layer = [
-            MixerBlock(dim, self.num_patch, token_dim, channel_dim)
+            MixerBlock(dim, self.num_patch, token_dim, channel_dim, dropout)
             for _ in range(num_layers)
         ]
         self.mixer_layer = nn.Sequential(*mixer_layer)
