@@ -1,4 +1,5 @@
 import einops
+import math
 import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
@@ -71,6 +72,30 @@ class MLP_Mixer(nn.Module):
         self.mixer_layer = nn.Sequential(*mixer_layer)
         self.global_pool = GlobalAveragePooling(dim = 1)
         self.mlp_head = nn.Linear(dim, num_classes)
+        self.init_weights(classes = num_classes)
+        print("READY")
+
+    def init_weights(self, classes):
+        head_bias = -math.log(classes)
+        for name, module in self.named_modules():
+            if isinstance(module, nn.Linear):
+                if name == "mlp_head":
+                    nn.init.zeros_(module.weight)
+                    nn.init.constant_(module.bias, head_bias)
+                else:
+                    nn.init.xavier_uniform_(module.weight)
+                    if 'mlp' in name:
+                        nn.init.normal_(module.bias, std = 1e-6)
+                    else:
+                        nn.init_zeros(module.bias)
+            elif isinstance(module, nn.Conv2d):
+                nn.init.kaiming_normal_(module.weight)
+                nn.init.zeros_(module.bias)
+            elif isinstance(module, nn.LayerNorm):
+                nn.init.zeros_(module.bias)
+                nn.init.ones_(module.weight)
+
+
 
     def forward(self, x):
         x = self.img2patch(x)
