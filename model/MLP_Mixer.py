@@ -73,7 +73,6 @@ class MLP_Mixer(nn.Module):
         self.global_pool = GlobalAveragePooling(dim = 1)
         self.mlp_head = nn.Linear(dim, num_classes)
         self.init_weights(classes = num_classes)
-        print("READY")
 
     def init_weights(self, classes):
         head_bias = -math.log(classes)
@@ -94,8 +93,6 @@ class MLP_Mixer(nn.Module):
             elif isinstance(module, nn.LayerNorm):
                 nn.init.zeros_(module.bias)
                 nn.init.ones_(module.weight)
-
-
 
     def forward(self, x):
         x = self.img2patch(x)
