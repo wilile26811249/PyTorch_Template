@@ -1,6 +1,6 @@
 import numpy as np
 from einops import rearrange
-from .MultiHeadAttn import MultiHeadSelfAttention
+from MultiHeadAttn import MultiHeadSelfAttention
 
 import torch
 import torch.nn as nn
@@ -55,8 +55,8 @@ class TransformerBlock(nn.Module):
     def forward(self, x, mask = None):
         # Residual Dropout connection around each of the sub-layers.
         # LayerNorm(Dropout(x) + Sublayer(x))
-        y = self.norm1(self.dropout(self.mhsa(x, mask)) + x)
-        return self.norm2(self.linear_transform(y) + y)
+        y = self.mhsa(self.dropout(self.norm1(x)), mask) + x
+        return self.linear_transform(self.norm2(y)) + y
 
 
 class TransformerEncoder(nn.Module):
